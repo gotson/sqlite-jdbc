@@ -153,6 +153,7 @@ public class OSInfo
                 while((readLen = in.read(buf, 0, buf.length)) >= 0) {
                     b.write(buf, 0, readLen);
                 }
+//                System.err.println("uname -m: '" + b.toString() + "'");
                 return b.toString();
             }
             finally {
@@ -168,6 +169,8 @@ public class OSInfo
     }
 
     static String resolveArmArchType() {
+//        System.err.println("Trying to resolve Arm arch type");
+//        System.err.println("os.name: " + System.getProperty("os.name"));
         if(System.getProperty("os.name").contains("Linux")) {
             String armType = getHardwareName();
             // armType (uname -m) can be armv5t, armv5te, armv5tej, armv5tejl, armv6, armv7, armv7l, aarch64, i686
@@ -183,20 +186,22 @@ public class OSInfo
                 // Use armv5, soft-float ABI
                 return "arm";
             }
-            else if (armType.equals("aarch64")) {
+            else if (armType.startsWith("aarch64")) {
                 // Use arm64
-                return "arm64";
+                return "aarch64";
             }
 
             // Java 1.8 introduces a system property to determine armel or armhf
             // http://bugs.java.com/bugdatabase/view_bug.do?bug_id=8005545
             String abi = System.getProperty("sun.arch.abi");
+//            System.err.println("sun.arch.abi: " + abi);
             if(abi != null && abi.startsWith("gnueabihf")) {
                 return "armv7";
             }
 
-            // For java7, we stil need to if run some shell commands to determine ABI of JVM
+            // For java7, we still need to if run some shell commands to determine ABI of JVM
             String javaHome = System.getProperty("java.home");
+//            System.err.println("java.home:" + javaHome);
             try {
                 // determine if first JVM found uses ARM hard-float ABI
                 int exitCode = Runtime.getRuntime().exec("which readelf").waitFor();
@@ -226,6 +231,7 @@ public class OSInfo
 
     public static String getArchName() {
         String osArch = System.getProperty("os.arch");
+//        System.err.println("os.arch: " + osArch);
         // For Android
         if(isAndroid()) {
             return "android-arm";
@@ -239,6 +245,7 @@ public class OSInfo
             if(archMapping.containsKey(lc))
                 return archMapping.get(lc);
         }
+//        System.err.println("Resolved arch: " + osArch);
         return translateArchNameToFolderName(osArch);
     }
 
