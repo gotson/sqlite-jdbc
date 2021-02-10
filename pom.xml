@@ -3,7 +3,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
   <modelVersion>4.0.0</modelVersion>
-  <groupId>org.gotson</groupId>
+  <groupId>com.github.gotson</groupId>
   <artifactId>sqlite-jdbc</artifactId>
   <version>3.32.3.6</version>
   <name>SQLite JDBC</name>
@@ -41,6 +41,13 @@
       <timezone>+9</timezone>
     </developer>
   </developers>
+
+  <distributionManagement>
+    <snapshotRepository>
+      <id>ossrh</id>
+      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+    </snapshotRepository>
+  </distributionManagement>
 
   <build>
     <resources>
@@ -103,17 +110,17 @@
         <version>2.6</version>
       </plugin>
 
-      <plugin>
-        <artifactId>maven-release-plugin</artifactId>
-        <version>2.1</version>
-        <configuration>
-          <!--  do not run site-deploy goal, included in the default settings  -->
-          <goals>deploy</goals>
-          <pushChanges>false</pushChanges>
-          <localCheckout>true</localCheckout>
-          <connectionUrl>scm:hg:ssh://hg@bitbucket.org/xerial/sqlite-jdbc</connectionUrl>
-        </configuration>
-      </plugin>
+<!--      <plugin>-->
+<!--        <artifactId>maven-release-plugin</artifactId>-->
+<!--        <version>2.1</version>-->
+<!--        <configuration>-->
+<!--          &lt;!&ndash;  do not run site-deploy goal, included in the default settings  &ndash;&gt;-->
+<!--          <goals>deploy</goals>-->
+<!--          <pushChanges>false</pushChanges>-->
+<!--          <localCheckout>true</localCheckout>-->
+<!--          <connectionUrl>scm:hg:ssh://hg@bitbucket.org/xerial/sqlite-jdbc</connectionUrl>-->
+<!--        </configuration>-->
+<!--      </plugin>-->
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -124,6 +131,14 @@
           <additionalOptions>-Xdoclint:none</additionalOptions>
           <additionalJOption>-Xdoclint:none</additionalJOption>
         </configuration>
+        <executions>
+          <execution>
+            <id>attach-javadocs</id>
+            <goals>
+              <goal>jar</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
 
       <plugin>
@@ -164,6 +179,18 @@
             </goals>
           </execution>
         </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.sonatype.plugins</groupId>
+        <artifactId>nexus-staging-maven-plugin</artifactId>
+        <version>1.6.8</version>
+        <extensions>true</extensions>
+        <configuration>
+          <serverId>ossrh</serverId>
+          <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+          <autoReleaseAfterClose>true</autoReleaseAfterClose>
+        </configuration>
       </plugin>
     </plugins>
 

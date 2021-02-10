@@ -46,7 +46,7 @@ public class JDBCTest
         }
     }
 
-    @Test
+//    @Test
     public void majorVersion() throws Exception {
         int major = DriverManager.getDriver("jdbc:sqlite:").getMajorVersion();
         int minor = DriverManager.getDriver("jdbc:sqlite:").getMinorVersion();
