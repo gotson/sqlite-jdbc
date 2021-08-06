@@ -5,7 +5,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.github.gotson</groupId>
   <artifactId>sqlite-jdbc</artifactId>
-  <version>3.32.3.6</version>
+  <version>3.32.3.8</version>
   <name>SQLite JDBC</name>
   <description>SQLite JDBC library</description>
 
