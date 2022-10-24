@@ -53,6 +53,7 @@ public abstract class JDBC3ResultSet extends CoreResultSet {
 
     /** @see java.sql.ResultSet#next() */
     public boolean next() throws SQLException {
+        checkOpen();
         if (!open || emptyResultSet) {
             return false; // finished ResultSet
         }
@@ -73,7 +74,6 @@ public abstract class JDBC3ResultSet extends CoreResultSet {
         int statusCode = stmt.pointer.safeRunInt(DB::step);
         switch (statusCode) {
             case SQLITE_DONE:
-                close(); // aggressive closing to avoid writer starvation
                 return false;
             case SQLITE_ROW:
                 row++;
@@ -86,17 +86,20 @@ public abstract class JDBC3ResultSet extends CoreResultSet {
     }
 
     /** @see java.sql.ResultSet#getType() */
-    public int getType() {
+    public int getType() throws SQLException {
+        checkOpen();
         return ResultSet.TYPE_FORWARD_ONLY;
     }
 
     /** @see java.sql.ResultSet#getFetchSize() */
-    public int getFetchSize() {
+    public int getFetchSize() throws SQLException {
+        checkOpen();
         return limitRows;
     }
 
     /** @see java.sql.ResultSet#setFetchSize(int) */
     public void setFetchSize(int rows) throws SQLException {
+        checkOpen();
         if (0 > rows || (maxRows != 0 && rows > maxRows)) {
             throw new SQLException("fetch size " + rows + " out of bounds " + maxRows);
         }
@@ -121,17 +124,19 @@ public abstract class JDBC3ResultSet extends CoreResultSet {
     }
 
     /** @see java.sql.ResultSet#isAfterLast() */
-    public boolean isAfterLast() {
-        return !open && !emptyResultSet;
+    public boolean isAfterLast() throws SQLException {
+        throw new SQLFeatureNotSupportedException("not supported by sqlite");
     }
 
     /** @see java.sql.ResultSet#isBeforeFirst() */
-    public boolean isBeforeFirst() {
+    public boolean isBeforeFirst() throws SQLException {
+        checkOpen();
         return !emptyResultSet && open && row == 0;
     }
 
     /** @see java.sql.ResultSet#isFirst() */
-    public boolean isFirst() {
+    public boolean isFirst() throws SQLException {
+        checkOpen();
         return row == 1;
     }
 
@@ -141,7 +146,8 @@ public abstract class JDBC3ResultSet extends CoreResultSet {
     }
 
     /** @see java.sql.ResultSet#getRow() */
-    public int getRow() {
+    public int getRow() throws SQLException {
+        checkOpen();
         return row;
     }
 
@@ -576,7 +582,8 @@ public abstract class JDBC3ResultSet extends CoreResultSet {
     // is not null, done with checkCol(int).
 
     /** @see java.sql.ResultSet#getMetaData() */
-    public ResultSetMetaData getMetaData() {
+    public ResultSetMetaData getMetaData() throws SQLException {
+        checkOpen();
         return (ResultSetMetaData) this;
     }
 
@@ -876,22 +883,26 @@ public abstract class JDBC3ResultSet extends CoreResultSet {
     }
 
     /** @see java.sql.ResultSet#getConcurrency() */
-    public int getConcurrency() {
+    public int getConcurrency() throws SQLException {
+        checkOpen();
         return ResultSet.CONCUR_READ_ONLY;
     }
 
     /** @see java.sql.ResultSet#rowDeleted() */
-    public boolean rowDeleted() {
+    public boolean rowDeleted() throws SQLException {
+        checkOpen();
         return false;
     }
 
     /** @see java.sql.ResultSet#rowInserted() */
-    public boolean rowInserted() {
+    public boolean rowInserted() throws SQLException {
+        checkOpen();
         return false;
     }
 
     /** @see java.sql.ResultSet#rowUpdated() */
-    public boolean rowUpdated() {
+    public boolean rowUpdated() throws SQLException {
+        checkOpen();
         return false;
     }
 

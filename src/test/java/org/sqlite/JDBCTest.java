@@ -232,6 +232,8 @@ public class JDBCTest {
                                                                             + " WHERE ID = "
                                                                             + id);
                                                         }
+                                                    } catch (SQLException e) {
+                                                        System.out.println("ResultSet was closed");
                                                     }
                                                 }
                                                 connection.commit();

@@ -77,6 +77,7 @@ public class JDBC4ResultSet extends JDBC3ResultSet implements ResultSet, ResultS
     }
 
     public int getHoldability() throws SQLException {
+        checkOpen();
         // TODO Auto-generated method stub
         return 0;
     }

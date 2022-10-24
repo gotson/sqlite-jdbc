@@ -146,6 +146,80 @@ public class ResultSetTest {
     }
 
     @Test
+    public void methodCallsOnClosedResultTestShouldThrow() throws SQLException {
+        ResultSet rs = stat.executeQuery("select 1");
+        rs.close();
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(rs::next)
+                .withMessageContaining("closed");
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(rs::wasNull)
+                .withMessageContaining("closed");
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(() -> rs.getInt(1))
+                .withMessageContaining("closed");
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(rs::getMetaData)
+                .withMessageContaining("closed");
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(() -> rs.findColumn("1"))
+                .withMessageContaining("closed");
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(rs::isBeforeFirst)
+                .withMessageContaining("closed");
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(rs::isFirst)
+                .withMessageContaining("closed");
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(rs::getRow)
+                .withMessageContaining("closed");
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(rs::getFetchDirection)
+                .withMessageContaining("closed");
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(() -> rs.setFetchSize(1))
+                .withMessageContaining("closed");
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(rs::getFetchSize)
+                .withMessageContaining("closed");
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(rs::getType)
+                .withMessageContaining("closed");
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(rs::getConcurrency)
+                .withMessageContaining("closed");
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(rs::rowUpdated)
+                .withMessageContaining("closed");
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(rs::rowInserted)
+                .withMessageContaining("closed");
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(rs::rowDeleted)
+                .withMessageContaining("closed");
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(rs::getHoldability)
+                .withMessageContaining("closed");
+    }
+
+    @Test
     public void testReturnsNonAsciiCodepoints() throws SQLException {
         String nonAsciiString = "국정의 중요한 사항에 관한";
         PreparedStatement pstat = conn.prepareStatement("select ?");

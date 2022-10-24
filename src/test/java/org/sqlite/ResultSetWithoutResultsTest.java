@@ -34,20 +34,16 @@ public class ResultSetWithoutResultsTest {
     private void testStmtWithResult(Statement statement) throws SQLException {
         try (ResultSet rs = statement.executeQuery("select 123")) {
             assertThat(rs.isBeforeFirst()).isTrue();
-            assertThat(rs.isAfterLast()).isFalse();
             rs.next();
             assertThat(rs.isBeforeFirst()).isFalse();
-            assertThat(rs.isAfterLast()).isFalse();
             assertThat(rs.getInt(1)).isEqualTo(123);
             rs.next();
-            assertThat(rs.isAfterLast()).isTrue();
         }
     }
 
     private void runEmptyStatement(Statement statement) throws SQLException {
         try (ResultSet rs = statement.executeQuery("select 1 where 1=0")) {
             assertThat(rs.isBeforeFirst()).isFalse();
-            assertThat(rs.isAfterLast()).isFalse();
         }
     }
 }
