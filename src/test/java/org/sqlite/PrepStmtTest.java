@@ -55,6 +55,30 @@ public class PrepStmtTest {
     }
 
     @Test
+    public void executeUpdateClosedStatement() throws SQLException {
+        PreparedStatement ps = conn.prepareStatement("create table t(c1)");
+        ps.close();
+
+        assertThatExceptionOfType(SQLException.class).isThrownBy(ps::executeUpdate);
+    }
+
+    @Test
+    public void executeQueryClosedStatement() throws SQLException {
+        PreparedStatement ps = conn.prepareStatement("select 123");
+        ps.close();
+
+        assertThatExceptionOfType(SQLException.class).isThrownBy(ps::executeQuery);
+    }
+
+    @Test
+    public void executeClosedStatement() throws SQLException {
+        PreparedStatement ps = conn.prepareStatement("select 123");
+        ps.close();
+
+        assertThatExceptionOfType(SQLException.class).isThrownBy(ps::execute);
+    }
+
+    @Test
     public void update() throws SQLException {
         assertThat(conn.prepareStatement("create table s1 (c1);").executeUpdate()).isEqualTo(0);
         PreparedStatement prep = conn.prepareStatement("insert into s1 values (?);");

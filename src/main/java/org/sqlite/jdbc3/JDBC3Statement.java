@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
+import java.sql.Statement;
 import java.util.Arrays;
 import org.sqlite.ExtendedCommand;
 import org.sqlite.ExtendedCommand.SQLExtension;
@@ -33,6 +34,7 @@ public abstract class JDBC3Statement extends CoreStatement {
 
     /** @see java.sql.Statement#execute(java.lang.String) */
     public boolean execute(final String sql) throws SQLException {
+        checkClosed();
         internalClose();
 
         return this.withConnectionTimeout(
@@ -70,6 +72,7 @@ public abstract class JDBC3Statement extends CoreStatement {
 
     /** @see java.sql.Statement#executeQuery(java.lang.String) */
     public ResultSet executeQuery(String sql) throws SQLException {
+        checkClosed();
         internalClose();
         this.sql = sql;
 
@@ -105,6 +108,7 @@ public abstract class JDBC3Statement extends CoreStatement {
 
     /** @see java.sql.Statement#executeLargeUpdate(java.lang.String) */
     public long executeLargeUpdate(String sql) throws SQLException {
+        checkClosed();
         internalClose();
         this.sql = sql;
 
@@ -442,5 +446,11 @@ public abstract class JDBC3Statement extends CoreStatement {
     protected interface SQLCallable<T> {
 
         T call() throws SQLException;
+    }
+
+    private void checkClosed() throws SQLException {
+        if (((Statement) this).isClosed()) {
+            throw new SQLException("This statement has been closed");
+        }
     }
 }

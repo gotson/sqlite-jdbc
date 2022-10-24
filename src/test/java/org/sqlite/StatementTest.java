@@ -41,6 +41,33 @@ public class StatementTest {
     }
 
     @Test
+    public void executeUpdateClosedStatement() throws SQLException {
+        stat.close();
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(() -> stat.executeUpdate("create table t(c1)"))
+                .withMessageContaining("This statement has been closed");
+    }
+
+    @Test
+    public void executeQueryClosedStatement() throws SQLException {
+        stat.close();
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(() -> stat.executeQuery("select 123"))
+                .withMessageContaining("This statement has been closed");
+    }
+
+    @Test
+    public void executeClosedStatement() throws SQLException {
+        stat.close();
+
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(() -> stat.execute("select 123"))
+                .withMessageContaining("This statement has been closed");
+    }
+
+    @Test
     public void executeUpdate() throws SQLException {
         assertThat(stat.executeUpdate("create table s1 (c1);")).isEqualTo(0);
         assertThat(stat.executeUpdate("insert into s1 values (0);")).isEqualTo(1);
@@ -131,6 +158,28 @@ public class StatementTest {
         assertThat(stat.execute("create table test (c1);")).isFalse();
         assertThat(stat.getUpdateCount()).isEqualTo(0);
         assertThat(stat.getMoreResults()).isFalse();
+        assertThat(stat.getUpdateCount()).isEqualTo(-1);
+    }
+
+    @Test
+    public void executeMultipleQueries() throws SQLException {
+        assertThat(stat.execute("select 1; select 2;")).isTrue();
+        ResultSet rs1 = stat.getResultSet();
+        assertThat(rs1).isNotNull();
+        assertThat(rs1.next()).isTrue();
+        assertThat(rs1.getInt(1)).isEqualTo(1);
+
+        assertThat(stat.getMoreResults()).isTrue();
+        assertThat(rs1.isClosed())
+                .isTrue(); // getMoreResults implicitly closes any current ResultSet object
+
+        ResultSet rs2 = stat.getResultSet();
+        assertThat(rs2).isNotNull();
+        assertThat(rs2.next()).isTrue();
+        assertThat(rs2.getInt(1)).isEqualTo(2);
+
+        assertThat(stat.getMoreResults()).isFalse();
+        assertThat(rs2.isClosed()).isTrue();
         assertThat(stat.getUpdateCount()).isEqualTo(-1);
     }
 
