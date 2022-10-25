@@ -70,7 +70,7 @@ public abstract class JDBC3PreparedStatement extends CorePreparedStatement {
             throw new SQLException("Query does not return results");
         }
 
-        rs.close();
+        if(rs != null) rs.close();
         pointer.safeRunConsume(DB::reset);
 
         if (this.conn instanceof JDBC3Connection) {
@@ -83,6 +83,7 @@ public abstract class JDBC3PreparedStatement extends CorePreparedStatement {
                     try {
                         resultsWaiting =
                                 conn.getDatabase().execute(JDBC3PreparedStatement.this, batch);
+                        rs.emptyResultSet = !resultsWaiting;
                         success = true;
                     } finally {
                         if (!success && !pointer.isClosed()) {

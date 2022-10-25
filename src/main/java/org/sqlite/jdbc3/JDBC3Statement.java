@@ -11,9 +11,13 @@ import java.util.Arrays;
 import org.sqlite.ExtendedCommand;
 import org.sqlite.ExtendedCommand.SQLExtension;
 import org.sqlite.SQLiteConnection;
+import org.sqlite.core.CoreResultSet;
 import org.sqlite.core.CoreStatement;
 import org.sqlite.core.DB;
 import org.sqlite.core.DB.ProgressObserver;
+import org.sqlite.core.ResultWrapper;
+import org.sqlite.core.SafeStmtPtr;
+import org.sqlite.jdbc4.JDBC4ResultSet;
 
 public abstract class JDBC3Statement extends CoreStatement {
 
@@ -49,9 +53,30 @@ public abstract class JDBC3Statement extends CoreStatement {
                     JDBC3Statement.this.sql = sql;
 
                     conn.getDatabase().prepare(JDBC3Statement.this);
-                    boolean result = exec();
-                    updateCount = getDatabase().changes();
-                    return result;
+
+                    boolean firstResult = false;
+                    for (int i = 0; i < pointers.size(); i++) {
+                        pointer = pointers.get(i);
+                        boolean result = exec();
+                        long updateCount = getDatabase().changes();
+                        ResultWrapper newResults;
+                        if(result){
+                            JDBC4ResultSet resultSet = new JDBC4ResultSet(this, pointer);
+                            resultSet.emptyResultSet = !resultsWaiting;
+                            newResults = new ResultWrapper(resultSet);
+                        } else {
+                            newResults = new ResultWrapper(updateCount);
+                        }
+                        if(i == 0) {
+                            firstResult = result;
+                            results = unclosedResults = newResults;
+                        } else {
+                            results.append(newResults);
+                        }
+                    }
+                    pointer = pointers.get(0);
+                    rs = results.getResultSet();
+                    return firstResult;
                 });
     }
 
@@ -79,12 +104,18 @@ public abstract class JDBC3Statement extends CoreStatement {
         return this.withConnectionTimeout(
                 () -> {
                     conn.getDatabase().prepare(JDBC3Statement.this);
+                    if(pointers.size() > 1) {
+                        internalClose();
+                        throw new SQLException("Multiple ResultSets were returned by the query");
+                    }
+                    rs = new JDBC4ResultSet(this, pointer);
 
                     if (!exec()) {
                         internalClose();
                         throw new SQLException(
                                 "query does not return ResultSet", "SQLITE_DONE", SQLITE_DONE);
                     }
+                    rs.emptyResultSet = !resultsWaiting;
 
                     return getResultSet();
                 });
@@ -146,22 +177,24 @@ public abstract class JDBC3Statement extends CoreStatement {
     public ResultSet getResultSet() throws SQLException {
         checkOpen();
 
+        if(rs == null) return null;
+
         if (rs.isOpen()) {
             throw new SQLException("ResultSet already requested");
         }
 
-        if (pointer.safeRunInt(DB::column_count) == 0) {
-            return null;
-        }
+//        if (pointer.safeRunInt(DB::column_count) == 0) {
+//            return null;
+//        }
 
         if (rs.colsMeta == null) {
             rs.colsMeta = pointer.safeRun(DB::column_names);
         }
 
         rs.cols = rs.colsMeta;
-        rs.emptyResultSet = !resultsWaiting;
+//        rs.emptyResultSet = !resultsWaiting;
         rs.open = true;
-        resultsWaiting = false;
+//        resultsWaiting = false;
 
         return (ResultSet) rs;
     }
@@ -183,12 +216,14 @@ public abstract class JDBC3Statement extends CoreStatement {
      * @see java.sql.Statement#getLargeUpdateCount()
      */
     public long getLargeUpdateCount() throws SQLException {
-        DB db = conn.getDatabase();
-        if (!pointer.isClosed()
-                && !rs.isOpen()
-                && !resultsWaiting
-                && pointer.safeRunInt(DB::column_count) == 0) return updateCount;
-        return -1;
+        if(results == null) return -1;
+        return results.getUpdateCount();
+//        DB db = conn.getDatabase();
+//        if (!pointer.isClosed()
+//                && !rs.isOpen()
+//                && !resultsWaiting
+//                && pointer.safeRunInt(DB::column_count) == 0) return updateCount;
+//        return -1;
     }
 
     /** @see java.sql.Statement#addBatch(java.lang.String) */
@@ -216,6 +251,7 @@ public abstract class JDBC3Statement extends CoreStatement {
     /** @see java.sql.Statement#executeLargeBatch() */
     public long[] executeLargeBatch() throws SQLException {
         // TODO: optimize
+        checkClosed();
         internalClose();
         if (batch == null || batchPos == 0) return new long[] {};
 
@@ -225,9 +261,7 @@ public abstract class JDBC3Statement extends CoreStatement {
             try {
                 for (int i = 0; i < changes.length; i++) {
                     try {
-                        this.sql = (String) batch[i];
-                        db.prepare(this);
-                        changes[i] = db.executeUpdate(this, null);
+                        changes[i] = executeLargeUpdate((String) batch[i]);
                     } catch (SQLException e) {
                         throw new BatchUpdateException(
                                 "batch entry " + i + ": " + e.getMessage(), null, 0, changes, e);
@@ -360,14 +394,52 @@ public abstract class JDBC3Statement extends CoreStatement {
      * @see java.sql.Statement#getMoreResults()
      */
     public boolean getMoreResults() throws SQLException {
-        return getMoreResults(0);
+        return getMoreResults(Statement.CLOSE_ALL_RESULTS);
     }
 
     /** @see java.sql.Statement#getMoreResults(int) */
-    public boolean getMoreResults(int c) throws SQLException {
-        checkOpen();
-        internalClose(); // as we never have another result, clean up pointer
-        return false;
+    public boolean getMoreResults(int current) throws SQLException {
+        checkClosed();
+        if(current != Statement.CLOSE_CURRENT_RESULT && current != Statement.CLOSE_ALL_RESULTS && current != Statement.KEEP_CURRENT_RESULT) {
+            throw new SQLException("argument supplied must be one of Statement.CLOSE_CURRENT_RESULT, Statement.CLOSE_ALL_RESULTS, Statement.KEEP_CURRENT_RESULT");
+        }
+
+        // close current result
+        if(current == Statement.CLOSE_CURRENT_RESULT && rs != null) {
+            rs.close();
+        }
+
+        // advance results
+        if(results != null) {
+            results = results.getNext();
+            if(results != null) {
+                rs = results.getResultSet();
+            } else {
+                rs = null;
+            }
+            try {
+                pointer = pointers.get(pointers.indexOf(pointer) +1);
+            } catch (IndexOutOfBoundsException e) {
+                pointer = null;
+            }
+        }
+
+        // close all previously opened results
+        if(current == Statement.CLOSE_ALL_RESULTS) {
+            ResultWrapper wrapper = unclosedResults;
+            for(; wrapper != results && wrapper != null; wrapper = wrapper.getNext()){
+                CoreResultSet r = wrapper.getResultSet();
+                if(r != null) {
+                    r.close();
+                }
+            }
+            unclosedResults = wrapper;
+        }
+
+        return (results != null && results.getResultSet() != null);
+//        checkOpen();
+//        internalClose(); // as we never have another result, clean up pointer
+//        return false;
     }
 
     /** @see java.sql.Statement#getResultSetConcurrency() */

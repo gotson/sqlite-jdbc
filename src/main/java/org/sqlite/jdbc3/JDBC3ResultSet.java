@@ -23,13 +23,14 @@ import java.util.regex.Pattern;
 import org.sqlite.core.CoreResultSet;
 import org.sqlite.core.CoreStatement;
 import org.sqlite.core.DB;
+import org.sqlite.core.SafeStmtPtr;
 import org.sqlite.date.FastDateFormat;
 
 public abstract class JDBC3ResultSet extends CoreResultSet {
     // ResultSet Functions //////////////////////////////////////////
 
-    protected JDBC3ResultSet(CoreStatement stmt) {
-        super(stmt);
+    protected JDBC3ResultSet(CoreStatement stmt, SafeStmtPtr pointer) {
+        super(stmt, pointer);
     }
 
     /**
@@ -71,7 +72,7 @@ public abstract class JDBC3ResultSet extends CoreResultSet {
         }
 
         // do the real work
-        int statusCode = stmt.pointer.safeRunInt(DB::step);
+        int statusCode = pointer.safeRunInt(DB::step);
         switch (statusCode) {
             case SQLITE_DONE:
                 return false;
@@ -228,7 +229,7 @@ public abstract class JDBC3ResultSet extends CoreResultSet {
 
     /** @see java.sql.ResultSet#getBytes(int) */
     public byte[] getBytes(int col) throws SQLException {
-        return stmt.pointer.safeRun((db, ptr) -> db.column_blob(ptr, markCol(col)));
+        return pointer.safeRun((db, ptr) -> db.column_blob(ptr, markCol(col)));
     }
 
     /** @see java.sql.ResultSet#getBytes(java.lang.String) */
@@ -343,7 +344,7 @@ public abstract class JDBC3ResultSet extends CoreResultSet {
 
     /** @see java.sql.ResultSet#getInt(int) */
     public int getInt(int col) throws SQLException {
-        return stmt.pointer.safeRunInt((db, ptr) -> db.column_int(ptr, markCol(col)));
+        return pointer.safeRunInt((db, ptr) -> db.column_int(ptr, markCol(col)));
     }
 
     /** @see java.sql.ResultSet#getInt(java.lang.String) */
@@ -787,7 +788,7 @@ public abstract class JDBC3ResultSet extends CoreResultSet {
     }
 
     private String getColumnDeclType(int col) throws SQLException {
-        String declType = stmt.pointer.safeRun((db, ptr) -> db.column_decltype(ptr, checkCol(col)));
+        String declType = pointer.safeRun((db, ptr) -> db.column_decltype(ptr, checkCol(col)));
 
         if (declType == null) {
             Matcher matcher = COLUMN_TYPECAST.matcher(safeGetColumnName(col));
@@ -983,26 +984,26 @@ public abstract class JDBC3ResultSet extends CoreResultSet {
     }
 
     private int safeGetColumnType(int col) throws SQLException {
-        return stmt.pointer.safeRunInt((db, ptr) -> db.column_type(ptr, col));
+        return pointer.safeRunInt((db, ptr) -> db.column_type(ptr, col));
     }
 
     private long safeGetLongCol(int col) throws SQLException {
-        return stmt.pointer.safeRunLong((db, ptr) -> db.column_long(ptr, markCol(col)));
+        return pointer.safeRunLong((db, ptr) -> db.column_long(ptr, markCol(col)));
     }
 
     private double safeGetDoubleCol(int col) throws SQLException {
-        return stmt.pointer.safeRunDouble((db, ptr) -> db.column_double(ptr, markCol(col)));
+        return pointer.safeRunDouble((db, ptr) -> db.column_double(ptr, markCol(col)));
     }
 
     private String safeGetColumnText(int col) throws SQLException {
-        return stmt.pointer.safeRun((db, ptr) -> db.column_text(ptr, markCol(col)));
+        return pointer.safeRun((db, ptr) -> db.column_text(ptr, markCol(col)));
     }
 
     private String safeGetColumnTableName(int col) throws SQLException {
-        return stmt.pointer.safeRun((db, ptr) -> db.column_table_name(ptr, checkCol(col)));
+        return pointer.safeRun((db, ptr) -> db.column_table_name(ptr, checkCol(col)));
     }
 
     private String safeGetColumnName(int col) throws SQLException {
-        return stmt.pointer.safeRun((db, ptr) -> db.column_name(ptr, checkCol(col)));
+        return pointer.safeRun((db, ptr) -> db.column_name(ptr, checkCol(col)));
     }
 }

@@ -20,6 +20,10 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.sqlite.BusyHandler;
 import org.sqlite.Collation;
 import org.sqlite.Function;
@@ -114,15 +118,19 @@ public final class NativeDB extends DB {
     @Override
     public synchronized native void busy_handler(BusyHandler busyHandler);
 
-    /** @see org.sqlite.core.DB#prepare(java.lang.String) */
+    /**
+     * @see org.sqlite.core.DB#prepare(java.lang.String)
+     */
     @Override
-    protected synchronized SafeStmtPtr prepare(String sql) throws SQLException {
+    protected synchronized List<SafeStmtPtr> prepare(String sql) throws SQLException {
         DriverManager.println(
                 "DriverManager [" + Thread.currentThread().getName() + "] [SQLite PREP] " + sql);
-        return new SafeStmtPtr(this, prepare_utf8(stringToUtf8ByteArray(sql)));
+        return Arrays.stream(prepare_utf8(stringToUtf8ByteArray(sql)))
+                .mapToObj((ptr) -> new SafeStmtPtr(this, ptr))
+                .collect(Collectors.toList());
     }
 
-    synchronized native long prepare_utf8(byte[] sqlUtf8) throws SQLException;
+    synchronized native long[] prepare_utf8(byte[] sqlUtf8) throws SQLException;
 
     /** @see org.sqlite.core.DB#errmsg() */
     @Override

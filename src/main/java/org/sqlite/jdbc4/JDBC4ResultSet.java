@@ -25,12 +25,13 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.Map;
 import org.sqlite.core.CoreStatement;
+import org.sqlite.core.SafeStmtPtr;
 import org.sqlite.jdbc3.JDBC3ResultSet;
 
 public class JDBC4ResultSet extends JDBC3ResultSet implements ResultSet, ResultSetMetaData {
 
-    public JDBC4ResultSet(CoreStatement stmt) {
-        super(stmt);
+    public JDBC4ResultSet(CoreStatement stmt, SafeStmtPtr pointer) {
+        super(stmt, pointer);
     }
 
     @Override

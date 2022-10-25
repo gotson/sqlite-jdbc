@@ -104,6 +104,13 @@ public class StatementTest {
     }
 
     @Test
+    public void executeQueryThrowsOnMultipleResults() {
+        assertThatExceptionOfType(SQLException.class)
+                .isThrownBy(() -> stat.executeQuery("select 1; select 2;"))
+                .withMessageContaining("Multiple ResultSets were returned by the query");
+    }
+
+    @Test
     public void singleRowRS() throws SQLException {
         ResultSet rs = stat.executeQuery("select " + Integer.MAX_VALUE + ";");
         assertThat(rs.next()).isTrue();
@@ -161,26 +168,33 @@ public class StatementTest {
         assertThat(stat.getUpdateCount()).isEqualTo(-1);
     }
 
+
+
     @Test
     public void executeMultipleQueries() throws SQLException {
-        assertThat(stat.execute("select 1; select 2;")).isTrue();
-        ResultSet rs1 = stat.getResultSet();
-        assertThat(rs1).isNotNull();
-        assertThat(rs1.next()).isTrue();
-        assertThat(rs1.getInt(1)).isEqualTo(1);
+        stat.executeUpdate("create table t1(c1)");
+        stat.execute("select 1; insert into t1 values (?); select 12");
+
+        ResultSet rs = stat.getResultSet();
+        assertThat(rs.next()).isTrue();
+        assertThat(rs.getInt(1)).isEqualTo(1);
+
+        assertThat(stat.getMoreResults()).as("getMoreResults returns false if the next result is not a ResultSet").isFalse();
+
+        rs = stat.getResultSet();
+        assertThat(rs).as("insert produces no result").isNull();
+        assertThat(stat.getUpdateCount()).isEqualTo(1);
 
         assertThat(stat.getMoreResults()).isTrue();
-        assertThat(rs1.isClosed())
-                .isTrue(); // getMoreResults implicitly closes any current ResultSet object
 
-        ResultSet rs2 = stat.getResultSet();
-        assertThat(rs2).isNotNull();
-        assertThat(rs2.next()).isTrue();
-        assertThat(rs2.getInt(1)).isEqualTo(2);
+        rs = stat.getResultSet();
+        assertThat(rs).isNotNull();
+        assertThat(rs.next()).isTrue();
+        assertThat(rs.getInt(1)).isEqualTo(12);
 
         assertThat(stat.getMoreResults()).isFalse();
-        assertThat(rs2.isClosed()).isTrue();
         assertThat(stat.getUpdateCount()).isEqualTo(-1);
+        assertThat(stat.getResultSet()).isNull();
     }
 
     @Test
@@ -291,14 +305,14 @@ public class StatementTest {
         assertThat(stat.executeBatch()).containsExactly(1);
         assertThat(stat.executeBatch()).isEmpty();
         stat.clearBatch();
+        stat.addBatch("insert into batch values (7);insert into batch values (7);");
         stat.addBatch("insert into batch values (7);");
-        stat.addBatch("insert into batch values (7);");
-        assertThat(stat.executeBatch()).containsExactly(1, 1);
+        assertThat(stat.executeBatch()).containsExactly(2, 1);
         stat.clearBatch();
 
         ResultSet rs = stat.executeQuery("select count(*) from batch;");
         assertThat(rs.next()).isTrue();
-        assertThat(rs.getInt(1)).isEqualTo(8);
+        assertThat(rs.getInt(1)).isEqualTo(9);
         rs.close();
     }
 
@@ -422,13 +436,12 @@ public class StatementTest {
     public void executeClearRS() throws SQLException {
         assertThat(stat.execute("select null;")).isTrue();
         assertThat(stat.getResultSet()).isNotNull();
-        assertThat(stat.getMoreResults()).isFalse();
         assertThatExceptionOfType(SQLException.class).isThrownBy(() -> stat.getResultSet());
     }
 
     @Test
     public void batchReturnsResults() throws SQLException {
-        stat.addBatch("select null;");
+        stat.addBatch("sel null;");
         assertThatExceptionOfType(BatchUpdateException.class).isThrownBy(() -> stat.executeBatch());
     }
 
@@ -454,9 +467,10 @@ public class StatementTest {
     @Test
     public void multipleStatements() throws SQLException {
         // ; insert into person values(1,'leo')
-        stat.executeUpdate(
+        int updateCount = stat.executeUpdate(
                 "create table person (id integer, name string); "
                         + "insert into person values(1, 'leo'); insert into person values(2, 'yui');");
+        assertThat(updateCount).isEqualTo(2);
         ResultSet rs = stat.executeQuery("select * from person");
         assertThat(rs.next()).isTrue();
         assertThat(rs.next()).isTrue();

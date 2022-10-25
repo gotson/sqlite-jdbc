@@ -18,6 +18,7 @@ package org.sqlite.core;
 import java.sql.BatchUpdateException;
 import java.sql.SQLException;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -185,20 +186,24 @@ public abstract class DB implements Codes {
      *     href="http://www.sqlite.org/c3ref/exec.html">http://www.sqlite.org/c3ref/exec.html</a>
      */
     public final synchronized void exec(String sql, boolean autoCommit) throws SQLException {
-        SafeStmtPtr pointer = prepare(sql);
+        List<SafeStmtPtr> pointers = prepare(sql);
         try {
-            int rc = pointer.safeRunInt(DB::step);
-            switch (rc) {
-                case SQLITE_DONE:
-                    ensureAutoCommit(autoCommit);
-                    return;
-                case SQLITE_ROW:
-                    return;
-                default:
-                    throwex(rc);
+            for (SafeStmtPtr pointer : pointers) {
+                int rc = pointer.safeRunInt(DB::step);
+                switch (rc) {
+                    case SQLITE_DONE:
+                        ensureAutoCommit(autoCommit);
+                        break;
+                    case SQLITE_ROW:
+                        break;
+                    default:
+                        throwex(rc);
+                }
             }
         } finally {
-            pointer.close();
+            for (SafeStmtPtr pointer : pointers) {
+                pointer.close();
+            }
         }
     }
 
@@ -247,7 +252,7 @@ public abstract class DB implements Codes {
     }
 
     /**
-     * Complies the an SQL statement.
+     * Compiles an SQL statement.
      *
      * @param stmt The SQL statement to compile.
      * @throws SQLException
@@ -258,11 +263,14 @@ public abstract class DB implements Codes {
         if (stmt.sql == null) {
             throw new NullPointerException();
         }
-        if (stmt.pointer != null) {
-            stmt.pointer.close();
+        for (SafeStmtPtr pointer : stmt.pointers) {
+            if (pointer != null) {
+                pointer.close();
+            }
         }
-        stmt.pointer = prepare(stmt.sql);
-        final boolean added = stmts.add(stmt.pointer);
+        stmt.pointers = prepare(stmt.sql);
+        stmt.pointer = stmt.pointers.get(0);
+        final boolean added = stmts.addAll(stmt.pointers);
         if (!added) {
             throw new IllegalStateException("Already added pointer to statements set");
         }
@@ -325,9 +333,9 @@ public abstract class DB implements Codes {
      * @return <a href="http://www.sqlite.org/c3ref/c_abort.html">Result Codes</a>
      * @throws SQLException
      * @see <a
-     *     href="http://www.sqlite.org/c3ref/prepare.html">http://www.sqlite.org/c3ref/prepare.html</a>
+     * href="http://www.sqlite.org/c3ref/prepare.html">http://www.sqlite.org/c3ref/prepare.html</a>
      */
-    protected abstract SafeStmtPtr prepare(String sql) throws SQLException;
+    protected abstract List<SafeStmtPtr> prepare(String sql) throws SQLException;
 
     /**
      * Destroys a prepared statement.
@@ -1187,14 +1195,14 @@ public abstract class DB implements Codes {
         if (begin == null) {
             synchronized (this) {
                 if (begin == null) {
-                    begin = prepare("begin;");
+                    begin = prepare("begin;").get(0);
                 }
             }
         }
         if (commit == null) {
             synchronized (this) {
                 if (commit == null) {
-                    commit = prepare("commit;");
+                    commit = prepare("commit;").get(0);
                 }
             }
         }

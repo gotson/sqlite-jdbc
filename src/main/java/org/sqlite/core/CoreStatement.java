@@ -17,6 +17,9 @@ package org.sqlite.core;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.List;
+
 import org.sqlite.SQLiteConnection;
 import org.sqlite.SQLiteConnectionConfig;
 import org.sqlite.jdbc3.JDBC3Connection;
@@ -24,8 +27,12 @@ import org.sqlite.jdbc4.JDBC4ResultSet;
 
 public abstract class CoreStatement implements Codes {
     public final SQLiteConnection conn;
-    protected final CoreResultSet rs;
 
+    public List<SafeStmtPtr> pointers = Collections.emptyList();
+    public ResultWrapper results;
+    public ResultWrapper unclosedResults;
+
+    protected CoreResultSet rs;
     public SafeStmtPtr pointer;
     protected String sql = null;
 
@@ -35,7 +42,7 @@ public abstract class CoreStatement implements Codes {
 
     protected CoreStatement(SQLiteConnection c) {
         conn = c;
-        rs = new JDBC4ResultSet(this);
+        rs = new JDBC4ResultSet(this, null);
     }
 
     public DB getDatabase() {
@@ -48,7 +55,7 @@ public abstract class CoreStatement implements Codes {
 
     /** @throws SQLException If the database is not opened. */
     protected final void checkOpen() throws SQLException {
-        if (pointer.isClosed()) throw new SQLException("statement is not executing");
+        if (pointer != null && pointer.isClosed()) throw new SQLException("statement is not executing");
     }
 
     /**
@@ -67,7 +74,7 @@ public abstract class CoreStatement implements Codes {
      */
     protected boolean exec() throws SQLException {
         if (sql == null) throw new SQLException("SQLiteJDBC internal error: sql==null");
-        if (rs.isOpen()) throw new SQLException("SQLite JDBC internal error: rs.isOpen() on exec.");
+        if (rs != null && rs.isOpen()) throw new SQLException("SQLite JDBC internal error: rs.isOpen() on exec.");
 
         if (this.conn instanceof JDBC3Connection) {
             ((JDBC3Connection) this.conn).tryEnforceTransactionMode();
@@ -125,7 +132,7 @@ public abstract class CoreStatement implements Codes {
         if (this.pointer != null && !this.pointer.isClosed()) {
             if (conn.isClosed()) throw DB.newSQLException(SQLITE_ERROR, "Connection is closed");
 
-            rs.close();
+            if(rs != null) rs.close();
 
             batch = null;
             batchPos = 0;

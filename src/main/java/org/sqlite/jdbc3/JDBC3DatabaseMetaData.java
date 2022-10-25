@@ -601,7 +601,7 @@ public abstract class JDBC3DatabaseMetaData extends org.sqlite.core.CoreDatabase
 
     /** @see java.sql.DatabaseMetaData#supportsMultipleResultSets() */
     public boolean supportsMultipleResultSets() {
-        return false;
+        return true;
     }
 
     /** @see java.sql.DatabaseMetaData#supportsMultipleTransactions() */

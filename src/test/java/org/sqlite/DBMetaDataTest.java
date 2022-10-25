@@ -1568,4 +1568,11 @@ public class DBMetaDataTest {
         assertThat(meta.getDatabaseMinorVersion()).as("db minor version").isEqualTo(minorVersion);
         assertThat(meta.getUserName()).as("user name").isNull();
     }
+
+    @Test
+    public void capabilities() throws SQLException {
+        assertThat(meta).isNotNull();
+
+        assertThat(meta.supportsMultipleResultSets()).isTrue();
+    }
 }

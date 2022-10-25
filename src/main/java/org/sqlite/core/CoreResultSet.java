@@ -24,6 +24,7 @@ import org.sqlite.SQLiteConnectionConfig;
 /** Implements a JDBC ResultSet. */
 public abstract class CoreResultSet implements Codes {
     protected final CoreStatement stmt;
+    protected final SafeStmtPtr pointer;
 
     /** If the result set does not have any rows. */
     public boolean emptyResultSet = false;
@@ -53,8 +54,9 @@ public abstract class CoreResultSet implements Codes {
      *
      * @param stmt The statement.
      */
-    protected CoreResultSet(CoreStatement stmt) {
+    protected CoreResultSet(CoreStatement stmt, SafeStmtPtr pointer) {
         this.stmt = stmt;
+        this.pointer = pointer;
     }
 
     // INTERNAL FUNCTIONS ///////////////////////////////////////////
@@ -118,7 +120,7 @@ public abstract class CoreResultSet implements Codes {
     public void checkMeta() throws SQLException {
         checkCol(1);
         if (meta == null) {
-            meta = stmt.pointer.safeRun(DB::column_metadata);
+            meta = pointer.safeRun(DB::column_metadata);
         }
     }
 
@@ -132,14 +134,14 @@ public abstract class CoreResultSet implements Codes {
         columnNameToIndex = null;
         emptyResultSet = false;
 
-        if (stmt.pointer.isClosed() || (!open && !closeStmt)) {
+        if (pointer == null || pointer.isClosed() || (!open && !closeStmt)) {
             return;
         }
 
         DB db = stmt.getDatabase();
         synchronized (db) {
-            if (!stmt.pointer.isClosed()) {
-                stmt.pointer.safeRunInt(DB::reset);
+            if (!pointer.isClosed()) {
+                pointer.safeRunInt(DB::reset);
 
                 if (closeStmt) {
                     closeStmt = false; // break recursive call

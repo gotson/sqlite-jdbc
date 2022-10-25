@@ -636,33 +636,65 @@ JNIEXPORT void JNICALL Java_org_sqlite_core_NativeDB_busy_1handler(
     change_busy_handler(env, nativeDB, busyHandler);
 }
 
-JNIEXPORT jlong JNICALL Java_org_sqlite_core_NativeDB_prepare_1utf8(
+JNIEXPORT jlongArray JNICALL Java_org_sqlite_core_NativeDB_prepare_1utf8(
         JNIEnv *env, jobject this, jbyteArray sql)
 {
+    jlongArray result;
     sqlite3* db;
-    sqlite3_stmt* stmt;
     char* sql_bytes;
+    const char* sql_next;
     int sql_nbytes;
     int status;
+    int default_size = 5;
+    int size = 0;
 
     db = gethandle(env, this);
     if (!db)
     {
         throwex_db_closed(env);
-        return 0;
+        return NULL;
     }
 
     utf8JavaByteArrayToUtf8Bytes(env, sql, &sql_bytes, &sql_nbytes);
-    if (!sql_bytes) return fromref(0);
+    if (!sql_bytes) return NULL;
 
-    status = sqlite3_prepare_v2(db, sql_bytes, sql_nbytes, &stmt, 0);
+    // copy the content of sql_bytes into a static array, so we can replace sql_current within sqlite3_prepare_v2 by pzTail
+    char sql_copy[sql_nbytes];
+    strcpy(sql_copy, sql_bytes);
+    const char* sql_current = sql_copy;
     freeUtf8Bytes(sql_bytes);
 
-    if (status != SQLITE_OK) {
-        throwex_errorcode(env, this, status);
-        return fromref(0);
+    int fill_size = default_size;
+    jlong *fill = malloc(fill_size * sizeof(jlong));
+    sqlite3_stmt** stmts = malloc(fill_size * sizeof(sqlite3_stmt*));
+    while(*sql_current) {
+        sqlite3_stmt* stmt;
+        status = sqlite3_prepare_v2(db, sql_current, -1, &stmt, &sql_current);
+        if (status != SQLITE_OK) {
+            // need to cleanup already processed statements before exiting
+            for(int i = 0; i < size; i++) {
+                sqlite3_finalize(stmts[i]);
+            }
+
+            throwex_errorcode(env, this, status);
+            return NULL;
+        }
+        size++;
+        if(size >= fill_size) {
+            // resize arrays
+            fill_size += default_size;
+            fill = realloc(fill, fill_size * sizeof(jlong));
+            stmts = realloc(stmts, fill_size * sizeof(sqlite3_stmt*));
+        }
+        fill[size-1] = fromref(stmt);
+        stmts[size-1] = stmt;
     }
-    return fromref(stmt);
+
+    result = (*env)->NewLongArray(env, size);
+    (*env)->SetLongArrayRegion(env, result, 0, size, fill);
+    free(fill);
+    free(stmts);
+    return result;
 }
 
 

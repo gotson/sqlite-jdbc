@@ -741,4 +741,27 @@ public class PrepStmtTest {
                             });
         }
     }
+
+    @Test
+    public void testMultipleQueries() throws SQLException {
+        stat.executeUpdate("create table t1(c1)");
+        PreparedStatement ps = conn.prepareStatement("insert into t1 values (?); select 12");
+        ps.setInt(1, 25);
+        ps.execute();
+
+        ResultSet rs = ps.getResultSet();
+        assertThat(rs).as("insert produces no result").isNull();
+        assertThat(stat.getUpdateCount()).isEqualTo(1);
+        assertThat(ps.getMoreResults()).isTrue();
+
+        rs = ps.getResultSet();
+        assertThat(rs).isNotNull();
+        assertThat(rs.next()).isTrue();
+        assertThat(rs.getInt(1)).isEqualTo(12);
+
+
+
+        assertThat(stat.getMoreResults()).isFalse();
+        assertThat(stat.getUpdateCount()).isEqualTo(-1);
+    }
 }
