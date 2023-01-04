@@ -19,6 +19,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.sql.ConnectionPoolDataSource;
 import javax.sql.PooledConnection;
 import org.junit.jupiter.api.Disabled;
@@ -72,4 +75,38 @@ public class SQLiteConnectionPoolDataSourceTest {
 
         Connection handle2 = pooledConn.getConnection();
     }
+
+    @Test
+    public void raceConditionTest() throws Exception {
+        ConnectionPoolDataSource ds = new SQLiteConnectionPoolDataSource();
+        PooledConnection pooledConn = ds.getPooledConnection();
+
+        List<Thread> threads = new ArrayList<>();
+        AtomicBoolean hasError = new AtomicBoolean(false);
+
+        for (int i = 0; i < 200; i++) {
+            Thread thread = new Thread(() -> {
+                for (int i1 = 0; i1 < 200000 && !hasError.get(); i1++) {
+                    try {
+                        try (Connection connection = pooledConn.getConnection()) {
+                            connection.setAutoCommit(false);
+                        }
+                    } catch (Exception e) {
+                        hasError.set(true);
+                        System.out.println("worker error");
+                        e.printStackTrace();
+                    }
+                }
+            });
+            thread.start();
+            threads.add(thread);
+        }
+
+        for (final Thread t : threads) {
+            t.join();
+        }
+
+        assertThat(hasError.get()).isFalse();
+    }
+
 }
